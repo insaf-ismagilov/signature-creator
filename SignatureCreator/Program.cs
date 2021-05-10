@@ -12,7 +12,11 @@ namespace SignatureCreator
 			var fileName = args[0];
 			var blockSize = long.Parse(args[1]);
 
-			var signatureCreator = new FileSignatureCreator(fileName, blockSize);
+			var signatureCreator = new FileSignatureCreator(new SignatureCreatorOptions
+			{
+				FileName = fileName,
+				BlockSize = blockSize
+			});
 
 			var signature = signatureCreator.ComputeFileSignature();
 

@@ -9,15 +9,11 @@ namespace SignatureCreator
 {
 	public class FileSignatureCreator
 	{
-		private const long DefaultBufferSize = 1024 * 300;
+		private readonly SignatureCreatorOptions _options;
 
-		private readonly string _fileName;
-		private readonly long _blockSize;
-
-		public FileSignatureCreator(string fileName, long blockSize)
+		public FileSignatureCreator(SignatureCreatorOptions options)
 		{
-			_fileName = fileName;
-			_blockSize = blockSize;
+			_options = options;
 		}
 
 		public IReadOnlyDictionary<int, string> ComputeFileSignature()
@@ -28,14 +24,14 @@ namespace SignatureCreator
 			long offset = 0;
 			var fileSize = GetFileSize();
 
-			var blocksCount = (int) Math.Ceiling((double) fileSize / _blockSize);
+			var blocksCount = (int) Math.Ceiling((double) fileSize / _options.BlockSize);
 
 			for (int i = 0; i < blocksCount; ++i)
 			{
 				var blockHash = ComputeBlockHash(offset);
 				result.TryAdd(i, blockHash);
 
-				offset += _blockSize;
+				offset += _options.BlockSize;
 			}
 
 			return result;
@@ -43,27 +39,22 @@ namespace SignatureCreator
 
 		private long GetFileSize()
 		{
-			using var fs = new FileStream(_fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+			using var fs = new FileStream(_options.FileName, FileMode.Open, FileAccess.Read, FileShare.Read);
 			return fs.Length;
-		}
-
-		private long GetBufferSize()
-		{
-			return DefaultBufferSize > _blockSize ? _blockSize : DefaultBufferSize;
 		}
 
 		private string ComputeBlockHash(long offset)
 		{
-			var blockEnd = offset + _blockSize;
-			var buffer = new byte[GetBufferSize()];
+			var blockEnd = offset + _options.BlockSize;
+			var buffer = new byte[_options.GetResultBlockBufferSize()];
 
 			using var sha256 = new SHA256Managed();
-			using var fs = new FileStream(_fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+			using var fs = new FileStream(_options.FileName, FileMode.Open, FileAccess.Read, FileShare.Read);
 
 			while (true)
 			{
 				fs.Seek(offset, SeekOrigin.Begin);
-				
+
 				var leftToReadBlock = blockEnd - offset;
 				var readCount = leftToReadBlock < buffer.Length ? leftToReadBlock : buffer.Length;
 
