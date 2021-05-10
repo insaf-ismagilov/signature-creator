@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace SignatureCreator
@@ -18,9 +19,13 @@ namespace SignatureCreator
 				BlockSize = blockSize
 			});
 
+			var sw = Stopwatch.StartNew();
 			var signature = signatureCreator.ComputeFileSignature();
-
+			sw.Stop();
+			
 			PrintSignature(signature);
+			Console.WriteLine("-----------------------------------------");
+			Console.WriteLine($"Execution time: {sw.ElapsedMilliseconds} ms");
 		}
 
 		private static void PrintSignature(IReadOnlyDictionary<int, string> signature)
