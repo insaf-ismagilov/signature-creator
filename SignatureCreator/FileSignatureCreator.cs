@@ -9,33 +9,33 @@ namespace SignatureCreator
 {
 	public class FileSignatureCreator
 	{
+		private const long DefaultBufferSize = 1024 * 300;
+
 		private readonly string _fileName;
 		private readonly long _blockSize;
-		
+
 		public FileSignatureCreator(string fileName, long blockSize)
 		{
 			_fileName = fileName;
 			_blockSize = blockSize;
 		}
-		
+
 		public IReadOnlyDictionary<int, string> ComputeFileSignature()
 		{
 			// TODO: change to multi-thread approach.
 			var result = new ConcurrentDictionary<int, string>();
 
 			long offset = 0;
-			var blockEnd = _blockSize;
 			var fileSize = GetFileSize();
 
 			var blocksCount = (int) Math.Ceiling((double) fileSize / _blockSize);
 
 			for (int i = 0; i < blocksCount; ++i)
 			{
-				var blockHash = ComputeBlockHash(offset, blockEnd);
+				var blockHash = ComputeBlockHash(offset);
 				result.TryAdd(i, blockHash);
 
 				offset += _blockSize;
-				blockEnd += _blockSize;
 			}
 
 			return result;
@@ -47,21 +47,32 @@ namespace SignatureCreator
 			return fs.Length;
 		}
 
-		private string ComputeBlockHash(long offset, long blockEnd)
+		private long GetBufferSize()
 		{
-			var buffer = new byte[_blockSize];
+			return DefaultBufferSize > _blockSize ? _blockSize : DefaultBufferSize;
+		}
+
+		private string ComputeBlockHash(long offset)
+		{
+			var blockEnd = offset + _blockSize;
+			var buffer = new byte[GetBufferSize()];
+
 			using var sha256 = new SHA256Managed();
 			using var fs = new FileStream(_fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
-				
+
 			while (true)
 			{
 				fs.Seek(offset, SeekOrigin.Begin);
-				var bytesRead = fs.Read(buffer, 0, buffer.Length);
+				
+				var leftToReadBlock = blockEnd - offset;
+				var readCount = leftToReadBlock < buffer.Length ? leftToReadBlock : buffer.Length;
 
-				offset += buffer.Length;
+				var bytesRead = fs.Read(buffer, 0, (int) readCount);
 
-				if (blockEnd > offset)
-					sha256.TransformBlock(buffer, 0, buffer.Length, buffer, 0);
+				offset += bytesRead;
+
+				if (bytesRead > 0)
+					sha256.TransformBlock(buffer, 0, bytesRead, buffer, 0);
 				else
 				{
 					sha256.TransformFinalBlock(buffer, 0, bytesRead);
@@ -69,7 +80,7 @@ namespace SignatureCreator
 				}
 			}
 		}
-		
+
 		private static string ConvertBytesToString(byte[] hashBytes)
 		{
 			var stringBuilder = new StringBuilder();
